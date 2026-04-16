@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmação de Presença</title>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f7f3f0, #ffffff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            padding: 30px 25px;
+            border-radius: 16px;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 26px;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 14px;
+            color: #777;
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 500;
+            margin: 20px 0 10px;
+            color: #555;
+        }
+
+        .checkbox-group {
+            border: 1px solid #eee;
+            border-radius: 10px;
+            padding: 12px;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 5px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        label:hover {
+            background: #f5f5f5;
+        }
+
+        input[type="checkbox"] {
+            accent-color: #c59d5f;
+            width: 18px;
+            height: 18px;
+        }
+
+        .primary {
+            font-weight: 500;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 25px;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            background: #c59d5f;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #b68c4e;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 25px 18px;
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <h1>Confirmação de Presença</h1>
+        <div class="subtitle">Estamos felizes em te convidar</div>
+
+        <form method="POST" action="/submit">
+
+            <input type="hidden" name="nome" value="{{ nome }}">
+            <input type="hidden" name="telefone" value="{{ telefone }}">
+            <input type="hidden" name="id" value="{{ id }}">
+
+            <!-- Convidado principal -->
+            <div class="section-title">Convidado</div>
+            <div class="checkbox-group">
+                <label class="primary">
+                    <input type="checkbox" name="confirmados" value="{{ id }}" checked>
+                    {{ nome }}
+                </label>
+            </div>
+
+            <div class="section-title">Você poderá comparecer?</div>
+
+            <div class="checkbox-group">
+                <label>
+                    <input type="radio" name="status" value="sim" checked onclick="toggleConvidados(true)">
+                    Sim, irei comparecer
+                </label>
+
+                <label>
+                    <input type="radio" name="status" value="nao" onclick="toggleConvidados(false)">
+                    Não poderei comparecer
+                </label>
+            </div>
+
+            <!-- Conexões -->
+            {% if conexoes %}
+                <div class="section-title">Acompanhantes</div>
+                <div class="checkbox-group">
+                    {% for pessoa in conexoes %}
+                        <label>
+                            <input type="checkbox" name="confirmados" value="{{ pessoa['id'] }}">
+                            {{ pessoa['Nome'] }}
+                        </label>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <button type="submit">Confirmar presença</button>
+        </form>
+
+    </div>
+</body>
+</html>
+<script id="4x8s1m">
+function toggleConvidados(enable) {
+    const checkboxes = document.querySelectorAll('input[name="confirmados"]');
+    checkboxes.forEach(cb => {
+        cb.disabled = !enable;
+
+        if (!enable) {
+            cb.checked = false;
+        }
+    });
+}
+</script>
