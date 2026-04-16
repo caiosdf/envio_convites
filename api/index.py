@@ -3,10 +3,10 @@ import csv
 import pandas as pd
 from datetime import datetime
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="../templates")
 
-CONVIDADOS_FILE = "./Lista_Convidados_Casamento.xlsx"
-RESPOSTAS_FILE = "./respostas.csv"
+CONVIDADOS_FILE = "data/Lista_Convidados_Casamento.xlsx"
+RESPOSTAS_FILE = "data/respostas.csv"
 
 
 def load_convidados():
@@ -27,8 +27,8 @@ def get_convidado_by_phone(telefone):
 def get_conexoes(convidado):
     convidados = load_convidados()
     ids = convidado['conexoes'].split(",") if convidado['conexoes'] else []
-    print(ids)
-    print(convidados)
+    # print(ids)
+    # print(convidados)
     # res = [convidados[int(id)] for id in ids if int(id) in convidados and str(id) != str(convidado["id"])]
     res = [convidados[str(id)] for id in ids]
     return res
@@ -51,10 +51,10 @@ def form():
         return "Convidado não encontrado"
 
     conexoes = get_conexoes(convidado)
-    print(conexoes)
+    # print(conexoes)
 
     return render_template(
-        "./form.html",
+        "form.html",
         nome=convidado["Nome"],
         telefone=telefone,
         id=convidado["id"],
