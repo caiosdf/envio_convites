@@ -1,44 +1,82 @@
-from flask import Flask, request, render_template, redirect
-import csv
-import pandas as pd
+from flask import Flask, request, render_template
+import sqlite3
 from datetime import datetime
 
 app = Flask(__name__, template_folder="../templates")
 
-CONVIDADOS_FILE = "data/Lista_Convidados_Casamento.xlsx"
-RESPOSTAS_FILE = "data/respostas.csv"
+DB_NAME = "convidados.db"
 
 
-def load_convidados():
-    df = pd.read_excel(CONVIDADOS_FILE,sheet_name="Noiva",converters={"id": str, "conexoes": str, "telefone": str, "Nome": str})
-    df = df.set_index("id")
-    res = df.to_dict(orient="index")
-    return res
+# 🔌 conexão helper
+def get_conn():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON;")
+    return conn
 
+def get_ultima_confirmacao(convidado_id):
+    conn = get_conn()
+    cursor = conn.cursor()
 
+    cursor.execute("""
+        SELECT r.*, c.nome as nome_confirmador
+        FROM respostas r
+        JOIN convidados c ON c.id = r.convidado_a
+        WHERE r.convidado_b = ?
+        ORDER BY r.timestamp DESC
+        LIMIT 1
+    """, (convidado_id,))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    return dict(row) if row else None
+
+# 🔎 buscar convidado por telefone
 def get_convidado_by_phone(telefone):
-    convidados = pd.DataFrame.from_dict([v for v in load_convidados().values()])
-    q = convidados[convidados['telefone'] == telefone]
-    q['id'] = q.index.values[0]
-    res = q.iloc[0].to_dict() if not q.empty else None
-    return res
+    conn = get_conn()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT * FROM convidados
+        WHERE telefone = ?
+    """, (telefone,))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    return dict(row) if row else None
 
 
-def get_conexoes(convidado):
-    convidados = load_convidados()
-    ids = convidado['conexoes'].split(",") if convidado['conexoes'] else []
-    # print(ids)
-    # print(convidados)
-    # res = [convidados[int(id)] for id in ids if int(id) in convidados and str(id) != str(convidado["id"])]
-    res = [convidados[str(id)] for id in ids]
-    return res
+# 🔗 buscar conexões
+def get_conexoes(convidado_id):
+    conn = get_conn()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT c.*
+        FROM conexoes cx
+        JOIN convidados c
+          ON c.id = CASE
+                WHEN cx.convidado_id_a = ?
+                THEN cx.convidado_id_b
+                ELSE cx.convidado_id_a
+          END
+        WHERE ? IN (cx.convidado_id_a, cx.convidado_id_b)
+    """, (convidado_id, convidado_id))
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [dict(r) for r in rows]
 
 
 @app.route("/")
 def home():
-    return "API rodando 🚀"
+    return render_template("home.html")
 
 
+# 📄 formulário
 @app.route("/form")
 def form():
     telefone = request.args.get("telefone")
@@ -50,125 +88,123 @@ def form():
     if not convidado:
         return "Convidado não encontrado"
 
-    conexoes = get_conexoes(convidado)
-    # print(conexoes)
+    # 🔍 verifica confirmação existente
+    confirmacao = get_ultima_confirmacao(convidado["id"])
+
+    override = request.args.get("override")
+
+    if confirmacao and not override:
+        return render_template(
+            "confirmado.html",
+            nome=convidado["nome"],
+            confirmador=confirmacao["nome_confirmador"],
+            status="SIM" if confirmacao["confirmado"] == 1 else "NÃO",
+            telefone=telefone
+        )
+
+    conexoes = get_conexoes(convidado["id"])
 
     return render_template(
         "form.html",
-        nome=convidado["Nome"],
+        nome=convidado["nome"],
         telefone=telefone,
         id=convidado["id"],
         conexoes=conexoes
     )
 
-def load_respostas():
-    try:
-        df = pd.read_csv(RESPOSTAS_FILE)
-    except FileNotFoundError:
-        df = pd.DataFrame(columns=[
-            "data", "id_principal", "nome", "telefone", "id_confirmado", "status"
-        ])
-    return df
+# 🧠 regra: verificar se todas conexões são NÃO
+def todas_conexoes_nao(convidado_id, conn):
+    cursor = conn.cursor()
 
-def upsert_resposta(df, registro):
-    id_confirmado = registro["id_confirmado"]
+    cursor.execute("""
+        SELECT c.id
+        FROM conexoes cx
+        JOIN convidados c
+          ON c.id = CASE
+                WHEN cx.convidado_id_a = ?
+                THEN cx.convidado_id_b
+                ELSE cx.convidado_id_a
+          END
+        WHERE ? IN (cx.convidado_id_a, cx.convidado_id_b)
+    """, (convidado_id, convidado_id))
 
-    idx = df[df["id_confirmado"] == id_confirmado].index
+    conexoes = cursor.fetchall()
 
-    if not idx.empty:
-        df.loc[idx[0]] = registro
-    else:
-        df.loc[len(df)] = registro
+    for c in conexoes:
+        cursor.execute("""
+            SELECT confirmado
+            FROM respostas
+            WHERE convidado_b = ?
+            ORDER BY timestamp DESC
+            LIMIT 1
+        """, (c["id"],))
 
-    return df
+        r = cursor.fetchone()
 
-def get_status(df, id_confirmado):
-    row = df[df["id_confirmado"] == id_confirmado]
-    if row.empty:
-        return None
-    return row.iloc[0]["status"]
-
-def deve_marcar_nao(pessoa, df_respostas):
-    tel = pessoa.get("telefone", "")
-    conexoes = pessoa.get("conexoes", "")
-
-    if tel != "-":
-        return False
-
-    if not conexoes or conexoes.strip() == "":
-        return True
-
-    ids = conexoes.split(",")
-
-    # verifica se todas conexões já estão como NAO
-    for cid in ids:
-        status = get_status(df_respostas, cid)
-        if status != "NAO":
+        if not r or r["confirmado"] != 0:
             return False
 
     return True
 
+
+# 📩 submit
 @app.route("/submit", methods=["POST"])
 def submit():
+    conn = get_conn()
+    cursor = conn.cursor()
+
     nome = request.form["nome"]
     telefone = request.form["telefone"]
-    id_principal = request.form["id"]
+    id_principal = int(request.form["id"])
     status = request.form["status"]
-
-    convidados = load_convidados()
-    df_respostas = load_respostas()
 
     agora = datetime.now()
 
-    def make_registro(id_confirmado, status):
-        return {
-            "data": agora,
-            "id_principal": id_principal,
-            "nome": nome,
-            "telefone": telefone,
-            "id_confirmado": id_confirmado,
-            "status": status
-        }
+    def salvar(convidado_b, confirmado):
+        cursor.execute("""
+            INSERT INTO respostas (timestamp, convidado_a, convidado_b, confirmado)
+            VALUES (?, ?, ?, ?)
+        """, (agora, id_principal, convidado_b, confirmado))
 
     # =========================
     # CASO SIM
     # =========================
     if status == "sim":
-        confirmados = request.form.getlist("confirmados")
+        confirmados = set(map(int, request.form.getlist("confirmados")))
 
-        for cid in confirmados:
-            df_respostas = upsert_resposta(
-                df_respostas,
-                make_registro(cid, "SIM")
-            )
+        # 👤 principal + conexões
+        conexoes = get_conexoes(id_principal)
+        todos_ids = {id_principal} | {p["id"] for p in conexoes}
+
+        for cid in todos_ids:
+            if cid in confirmados:
+                salvar(cid, 1)
+            else:
+                salvar(cid, 0)
 
     # =========================
     # CASO NAO
     # =========================
     else:
         # principal
-        df_respostas = upsert_resposta(
-            df_respostas,
-            make_registro(id_principal, "NAO")
-        )
+        salvar(id_principal, 0)
 
-        convidado = get_convidado_by_phone(telefone)
-        conexoes = get_conexoes(convidado)
+        conexoes = get_conexoes(id_principal)
 
         for pessoa in conexoes:
-            if deve_marcar_nao(pessoa, df_respostas):
-                df_respostas = upsert_resposta(
-                    df_respostas,
-                    make_registro(pessoa["id"], "NAO")
-                )
+            if todas_conexoes_nao(pessoa["id"], conn):
+                salvar(pessoa["id"], 0)
 
-    # =========================
-    # SALVA CSV (overwrite)
-    # =========================
-    df_respostas.to_csv(RESPOSTAS_FILE, index=False)
+    conn.commit()
+    conn.close()
 
-    return "Resposta registrada com sucesso ✅"
+    return render_template(
+        "success.html",
+        nome=nome,
+        telefone=telefone,
+        status="SIM" if status == "sim" else "NÃO"
+    )
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)

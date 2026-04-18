@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmação já registrada</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            background: #f7f3f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .box {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+        }
+
+        button {
+            margin-top: 15px;
+            padding: 12px;
+            width: 100%;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .primary {
+            background: #c59d5f;
+            color: white;
+        }
+
+        .secondary {
+            background: #ddd;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="box">
+        <h2>Presença já registrada</h2>
+
+        <p>
+            {{ nome }}, sua presença já foi registrada como
+            <strong>{{ status }}</strong>
+            por <strong>{{ confirmador }}</strong>.
+        </p>
+
+        <p>Deseja alterar essa resposta?</p>
+
+        <button class="primary" onclick="alterar()">Sim, alterar</button>
+        <button class="secondary" onclick="voltar()">Não</button>
+    </div>
+
+<script>
+function alterar() {
+    window.location.href = "/form?telefone={{ telefone }}&override=true";
+}
+
+function voltar() {
+    window.location.href = "/";
+}
+</script>
+
+</body>
+</html>

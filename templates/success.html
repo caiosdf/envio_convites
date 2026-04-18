@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmação registrada</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f7f3f0, #ffffff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            padding: 30px 25px;
+            border-radius: 16px;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 26px;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            margin: 20px 0;
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .sim {
+            color: #2e7d32;
+        }
+
+        .nao {
+            color: #c62828;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 15px;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            background: #c59d5f;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button.secondary {
+            background: #ddd;
+            color: #333;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <h1>Obrigado, {{ nome }}! 🎉</h1>
+
+        <p>Sua resposta foi registrada com sucesso.</p>
+
+        <div class="status {{ 'sim' if status == 'SIM' else 'nao' }}">
+            {% if status == "SIM" %}
+                ✔️ Você confirmou presença
+            {% else %}
+                ❌ Você informou que não poderá comparecer
+            {% endif %}
+        </div>
+
+        <button onclick="alterar()">Alterar resposta</button>
+
+        <button class="secondary" onclick="finalizar()">Finalizar</button>
+
+    </div>
+
+<script>
+function alterar() {
+    window.location.href = "/form?telefone={{ telefone }}&override=true";
+}
+
+function finalizar() {
+    window.location.href = "/";
+}
+</script>
+
+</body>
+</html>

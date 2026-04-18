@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Confirmação de Presença</title>
 
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 
     <style>
@@ -69,7 +68,7 @@
             background: #f5f5f5;
         }
 
-        input[type="checkbox"] {
+        input[type="checkbox"], input[type="radio"] {
             accent-color: #c59d5f;
             width: 18px;
             height: 18px;
@@ -96,6 +95,52 @@
             background: #b68c4e;
         }
 
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 350px;
+            text-align: center;
+        }
+
+        .modal-content h3 {
+            margin-top: 0;
+        }
+
+        .modal-content ul {
+            text-align: left;
+            padding-left: 20px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .modal-buttons button {
+            margin-top: 0;
+        }
+
+        .secondary {
+            background: #ccc;
+            color: #333;
+        }
+
         @media (max-width: 480px) {
             .container {
                 padding: 25px 18px;
@@ -114,13 +159,12 @@
         <h1>Confirmação de Presença</h1>
         <div class="subtitle">Estamos felizes em te convidar</div>
 
-        <form method="POST" action="/submit">
+        <form id="confirmForm" method="POST" action="/submit">
 
             <input type="hidden" name="nome" value="{{ nome }}">
             <input type="hidden" name="telefone" value="{{ telefone }}">
             <input type="hidden" name="id" value="{{ id }}">
 
-            <!-- Convidado principal -->
             <div class="section-title">Convidado</div>
             <div class="checkbox-group">
                 <label class="primary">
@@ -143,34 +187,104 @@
                 </label>
             </div>
 
-            <!-- Conexões -->
             {% if conexoes %}
                 <div class="section-title">Acompanhantes</div>
                 <div class="checkbox-group">
                     {% for pessoa in conexoes %}
                         <label>
                             <input type="checkbox" name="confirmados" value="{{ pessoa['id'] }}">
-                            {{ pessoa['Nome'] }}
+                            {{ pessoa['nome'] }}
                         </label>
                     {% endfor %}
                 </div>
             {% endif %}
 
-            <button type="submit">Confirmar presença</button>
+            <button type="button" onclick="abrirConfirmacao()">Confirmar presença</button>
         </form>
 
     </div>
+
+    <!-- MODAL -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h3>Confirmar presença</h3>
+            <div id="resumo"></div>
+
+            <div class="modal-buttons">
+                <button onclick="confirmarEnvio()">Confirmar</button>
+                <button class="secondary" onclick="fecharModal()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
 </body>
-</html>
-<script id="4x8s1m">
+
+<script>
 function toggleConvidados(enable) {
     const checkboxes = document.querySelectorAll('input[name="confirmados"]');
     checkboxes.forEach(cb => {
         cb.disabled = !enable;
-
-        if (!enable) {
-            cb.checked = false;
-        }
+        if (!enable) cb.checked = false;
     });
 }
+
+function abrirConfirmacao() {
+    const form = document.getElementById("confirmForm");
+
+    const nome = form.querySelector('input[name="nome"]').value;
+    const status = form.querySelector('input[name="status"]:checked').value;
+
+    let resumo = `<p><strong>${nome}</strong></p>`;
+
+    if (status === "nao") {
+        resumo += "<p>❌ Não poderá comparecer</p>";
+    } else {
+        const todos = form.querySelectorAll('input[name="confirmados"]');
+        const selecionados = form.querySelectorAll('input[name="confirmados"]:checked');
+
+        let confirmados = [];
+        let naoConfirmados = [];
+
+        todos.forEach(cb => {
+            const label = cb.parentElement.innerText.trim();
+
+            if (cb.checked) {
+                confirmados.push(label);
+            } else {
+                naoConfirmados.push(label);
+            }
+        });
+
+        // ✅ Confirmados
+        if (confirmados.length > 0) {
+            resumo += "<p style='margin-top:10px;'><strong>✔️ Confirmados:</strong></p><ul>";
+            confirmados.forEach(nome => {
+                resumo += `<li>${nome}</li>`;
+            });
+            resumo += "</ul>";
+        }
+
+        // ❌ Não irão
+        if (naoConfirmados.length > 0) {
+            resumo += "<p style='margin-top:10px; color:#a94442;'><strong>❌ Não irão:</strong></p><ul>";
+            naoConfirmados.forEach(nome => {
+                resumo += `<li>${nome}</li>`;
+            });
+            resumo += "</ul>";
+        }
+    }
+
+    document.getElementById("resumo").innerHTML = resumo;
+    document.getElementById("modal").style.display = "flex";
+}
+
+function fecharModal() {
+    document.getElementById("modal").style.display = "none";
+}
+
+function confirmarEnvio() {
+    document.getElementById("confirmForm").submit();
+}
 </script>
+
+</html>
