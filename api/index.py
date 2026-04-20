@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, redirect
-import sqlite3
+from db import get_conn
 from datetime import datetime
 
 app = Flask(__name__, template_folder="../templates")
@@ -8,11 +8,11 @@ DB_NAME = "convidados.db"
 
 
 # 🔌 conexão helper
-def get_conn():
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON;")
-    return conn
+# def get_conn():
+#     conn = sqlite3.connect(DB_NAME)
+#     conn.row_factory = sqlite3.Row
+#     conn.execute("PRAGMA foreign_keys = ON;")
+#     return conn
 
 def get_ultima_confirmacao(convidado_id):
     conn = get_conn()
@@ -22,7 +22,7 @@ def get_ultima_confirmacao(convidado_id):
         SELECT r.*, c.nome as nome_confirmador
         FROM respostas r
         JOIN convidados c ON c.id = r.convidado_a
-        WHERE r.convidado_b = ?
+        WHERE r.convidado_b = %s
         ORDER BY r.timestamp DESC
         LIMIT 1
     """, (convidado_id,))
@@ -39,7 +39,7 @@ def get_convidado_by_phone(telefone):
 
     cursor.execute("""
         SELECT * FROM convidados
-        WHERE telefone = ?
+        WHERE telefone = %s
     """, (telefone,))
 
     row = cursor.fetchone()
@@ -58,11 +58,11 @@ def get_conexoes(convidado_id):
         FROM conexoes cx
         JOIN convidados c
           ON c.id = CASE
-                WHEN cx.convidado_id_a = ?
+                WHEN cx.convidado_id_a = %s
                 THEN cx.convidado_id_b
                 ELSE cx.convidado_id_a
           END
-        WHERE ? IN (cx.convidado_id_a, cx.convidado_id_b)
+        WHERE %s IN (cx.convidado_id_a, cx.convidado_id_b)
     """, (convidado_id, convidado_id))
 
     rows = cursor.fetchall()
@@ -121,11 +121,11 @@ def todas_conexoes_nao(convidado_id, conn):
         FROM conexoes cx
         JOIN convidados c
           ON c.id = CASE
-                WHEN cx.convidado_id_a = ?
+                WHEN cx.convidado_id_a = %s
                 THEN cx.convidado_id_b
                 ELSE cx.convidado_id_a
           END
-        WHERE ? IN (cx.convidado_id_a, cx.convidado_id_b)
+        WHERE %s IN (cx.convidado_id_a, cx.convidado_id_b)
     """, (convidado_id, convidado_id))
 
     conexoes = cursor.fetchall()
@@ -134,7 +134,7 @@ def todas_conexoes_nao(convidado_id, conn):
         cursor.execute("""
             SELECT confirmado
             FROM respostas
-            WHERE convidado_b = ?
+            WHERE convidado_b = %s
             ORDER BY timestamp DESC
             LIMIT 1
         """, (c["id"],))
@@ -163,7 +163,7 @@ def submit():
     def salvar(convidado_b, confirmado):
         cursor.execute("""
             INSERT INTO respostas (timestamp, convidado_a, convidado_b, confirmado)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
         """, (agora, id_principal, convidado_b, confirmado))
 
     if status == "sim":
@@ -213,7 +213,7 @@ def transfer():
     conn = get_conn()
     cursor = conn.cursor()
 
-    placeholders = ",".join(["?"] * len(ids_list))
+    placeholders = ",".join(["%s"] * len(ids_list))
 
     query = f"""
         SELECT id, nome
@@ -254,7 +254,7 @@ def submit_transfer():
     cursor.execute("""
         SELECT convidado_b
         FROM respostas
-        WHERE convidado_a = ?
+        WHERE convidado_a = %s
         AND confirmado = 1
     """, (responsavel,))
 
@@ -265,7 +265,7 @@ def submit_transfer():
 
         cursor.execute("""
             INSERT INTO transfer_interesse (convidado_id, responsavel_id, interessado)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
             ON CONFLICT(convidado_id)
             DO UPDATE SET interessado = excluded.interessado
         """, (cid, responsavel, interessado))
