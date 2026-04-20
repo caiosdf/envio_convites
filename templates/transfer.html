@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transporte</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f7f3f0, #ffffff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            padding: 30px 25px;
+            border-radius: 16px;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 26px;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 14px;
+            color: #777;
+            margin-bottom: 20px;
+        }
+
+        .info-box {
+            background: #faf7f2;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            padding: 15px;
+            font-size: 14px;
+            color: #555;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 500;
+            margin: 20px 0 10px;
+            color: #555;
+        }
+
+        .checkbox-group {
+            border: 1px solid #eee;
+            border-radius: 10px;
+            padding: 12px;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 5px;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        label:hover {
+            background: #f5f5f5;
+        }
+
+        input[type="checkbox"] {
+            accent-color: #c59d5f;
+            width: 18px;
+            height: 18px;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 25px;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            background: #c59d5f;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #b68c4e;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 350px;
+            text-align: center;
+        }
+
+        .modal-content ul {
+            text-align: left;
+            padding-left: 20px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .secondary {
+            background: #ddd;
+            color: #333;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Transporte 🚐</h1>
+    <div class="subtitle">Nos ajude a organizar o deslocamento</div>
+
+    <div class="info-box">
+        Nosso casamento será em <strong>Cosmos</strong> 💍<br><br>
+
+        Pensando em <strong>comodidade, segurança e praticidade</strong>, 
+        estamos organizando um transporte (ida e volta) para os convidados.<br><br>
+
+        O valor será dividido entre os participantes.
+        <br><br>
+
+        <strong>📍 Saída:</strong> Estr. de Itararé, 958<br>
+        <strong>⏰ Horário:</strong> 13h
+    </div>
+
+    <form id="formTransfer" method="POST" action="/submit_transfer">
+
+        <input type="hidden" name="responsavel" value="{{ responsavel }}">
+        <input type="hidden" name="telefone" value="{{ telefone }}">
+
+        <div class="section-title">Quem irá utilizar o transporte?</div>
+
+        <div class="checkbox-group">
+            {% for p in convidados %}
+                <label>
+                    <input type="checkbox" name="transfer" value="{{ p['id'] }}">
+                    {{ p['nome'] }}
+                </label>
+            {% endfor %}
+        </div>
+
+        <button type="button" onclick="abrirModal()">Continuar</button>
+    </form>
+
+</div>
+
+<!-- MODAL -->
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <h3>Confirmar transporte</h3>
+        <div id="resumo"></div>
+
+        <div class="modal-buttons">
+            <button onclick="confirmar()">Confirmar</button>
+            <button class="secondary" onclick="fechar()">Voltar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function abrirModal() {
+    const checks = document.querySelectorAll("input[name='transfer']");
+    
+    let sim = [], nao = [];
+
+    checks.forEach(c => {
+        const nome = c.parentElement.innerText.trim();
+        if (c.checked) sim.push(nome);
+        else nao.push(nome);
+    });
+
+    if (sim.length === 0) {
+        alert("Selecione pelo menos uma pessoa ou confirme que ninguém utilizará.");
+    }
+
+    let html = `
+        <p style="font-size:14px;">
+            🚐 Saída: <strong>Avenida Itaoca, 1713</strong><br>
+            ⏰ Horário: <strong>14h</strong>
+        </p>
+    `;
+
+    if (sim.length) {
+        html += "<p><strong>✔️ Utilizarão:</strong></p><ul>";
+        sim.forEach(n => html += `<li>${n}</li>`);
+        html += "</ul>";
+    }
+
+    if (nao.length) {
+        html += "<p style='color:#a94442'><strong>❌ Não utilizarão:</strong></p><ul>";
+        nao.forEach(n => html += `<li>${n}</li>`);
+        html += "</ul>";
+    }
+
+    document.getElementById("resumo").innerHTML = html;
+    document.getElementById("modal").style.display = "flex";
+}
+
+function fechar() {
+    document.getElementById("modal").style.display = "none";
+}
+
+function confirmar() {
+    document.getElementById("formTransfer").submit();
+}
+</script>
+
+</body>
+</html>

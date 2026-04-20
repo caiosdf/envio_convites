@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, redirect
 import sqlite3
 from datetime import datetime
 
@@ -166,45 +166,114 @@ def submit():
             VALUES (?, ?, ?, ?)
         """, (agora, id_principal, convidado_b, confirmado))
 
-    # =========================
-    # CASO SIM
-    # =========================
     if status == "sim":
         confirmados = set(map(int, request.form.getlist("confirmados")))
-
-        # 👤 principal + conexões
         conexoes = get_conexoes(id_principal)
         todos_ids = {id_principal} | {p["id"] for p in conexoes}
 
         for cid in todos_ids:
-            if cid in confirmados:
-                salvar(cid, 1)
-            else:
-                salvar(cid, 0)
+            salvar(cid, 1 if cid in confirmados else 0)
 
-    # =========================
-    # CASO NAO
-    # =========================
+        conn.commit()
+        conn.close()
+
+        # 👉 redireciona para transporte
+        ids_str = ",".join(map(str, confirmados))
+        return redirect(f"/transfer?ids={ids_str}&responsavel={id_principal}&telefone={telefone}")
+
     else:
-        # principal
         salvar(id_principal, 0)
 
-        conexoes = get_conexoes(id_principal)
+        conn.commit()
+        conn.close()
 
-        for pessoa in conexoes:
-            if todas_conexoes_nao(pessoa["id"], conn):
-                salvar(pessoa["id"], 0)
+        return render_template(
+            "success.html",
+            nome=nome,
+            telefone=telefone,
+            status="NÃO"
+        )
+
+
+@app.route("/transfer")
+def transfer():
+    ids = request.args.get("ids")
+    responsavel = request.args.get("responsavel")
+    telefone = request.args.get("telefone")
+
+    print("RAW IDS:", ids)
+
+    if not ids:
+        return "Nenhum convidado informado"
+
+    ids_list = [int(i) for i in ids.split(",") if i.strip()]
+
+    print("IDS LIST:", ids_list)
+
+    conn = get_conn()
+    cursor = conn.cursor()
+
+    placeholders = ",".join(["?"] * len(ids_list))
+
+    query = f"""
+        SELECT id, nome
+        FROM convidados
+        WHERE id IN ({placeholders})
+    """
+
+    cursor.execute(query, ids_list)
+    rows = cursor.fetchall()
+
+    print("ROWS:", rows)
+
+    # 🔥 CONVERSÃO GARANTIDA
+    convidados = [{"id": r["id"], "nome": r["nome"]} for r in rows]
+
+    print("FINAL:", convidados)
+
+    conn.close()
+
+    return render_template(
+        "transfer.html",
+        convidados=convidados,
+        responsavel=responsavel,
+        telefone=telefone
+    )
+
+@app.route("/submit_transfer", methods=["POST"])
+def submit_transfer():
+    conn = get_conn()
+    cursor = conn.cursor()
+
+    responsavel = int(request.form["responsavel"])
+    telefone = request.form["telefone"]
+
+    selecionados = set(map(int, request.form.getlist("transfer")))
+
+    # pegar todos da tela
+    cursor.execute("""
+        SELECT convidado_b
+        FROM respostas
+        WHERE convidado_a = ?
+        AND confirmado = 1
+    """, (responsavel,))
+
+    todos = {r["convidado_b"] for r in cursor.fetchall()}
+
+    for cid in todos:
+        interessado = 1 if cid in selecionados else 0
+
+        cursor.execute("""
+            INSERT INTO transfer_interesse (convidado_id, responsavel_id, interessado)
+            VALUES (?, ?, ?)
+            ON CONFLICT(convidado_id)
+            DO UPDATE SET interessado = excluded.interessado
+        """, (cid, responsavel, interessado))
 
     conn.commit()
     conn.close()
 
-    return render_template(
-        "success.html",
-        nome=nome,
-        telefone=telefone,
-        status="SIM" if status == "sim" else "NÃO"
-    )
-
+    return render_template("success.html", telefone=telefone, nome="Convidado", status="SIM")
 
 if __name__ == "__main__":
     app.run(debug=True)

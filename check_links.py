@@ -2,7 +2,7 @@ import sqlite3
 import csv
 
 DB_NAME = "convidados.db"
-BASE_URL = "https://eieiei.vercel.app/form"
+BASE_URL = "https://envio-convites.vercel.app/form"
 
 
 def get_convidados():
