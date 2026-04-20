@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, redirect
-from db import get_conn
+from api.db import get_conn
 from datetime import datetime
 
 app = Flask(__name__, template_folder="../templates")
